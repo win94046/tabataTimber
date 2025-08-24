@@ -27,6 +27,7 @@ kotlin {
     
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.kotlinx.datetime)
             // Koin dependencies will be added when network is available
             // implementation(libs.koin.core)
         }

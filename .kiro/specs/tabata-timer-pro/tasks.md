@@ -8,8 +8,8 @@
   - Set up dependency injection with Koin for shared dependencies
   - _Requirements: 1.1, 1.2_
 
-- [ ] 2. Implement core data models and validation
-  - [ ] 2.1 Create timer configuration and state data models
+- [x] 2. Implement core data models and validation
+  - [x] 2.1 Create timer configuration and state data models
     - **Use context7 to research**: Kotlin data class best practices, validation patterns, and testing frameworks
     - **Use sequential-thinking to design**: Data model structure, validation logic flow, and test case scenarios
     - Write TimerConfiguration, TimerState, and PhaseType data classes
@@ -17,7 +17,7 @@
     - Create unit tests for data model validation and edge cases
     - _Requirements: 1.1, 1.2, 1.5_
 
-  - [ ] 2.2 Implement subscription and feature access models
+  - [x] 2.2 Implement subscription and feature access models
     - **Use context7 to research**: Mobile app subscription models, feature gating patterns, and premium tier implementations
     - **Use sequential-thinking to analyze**: Feature access control logic, subscription state management, and validation strategies
     - Write SubscriptionStatus, PremiumFeature enum, and FeatureLimitStatus classes
@@ -25,7 +25,7 @@
     - Write unit tests for feature access logic and subscription validation
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-  - [ ] 2.3 Create weight tracking data models
+  - [x] 2.3 Create weight tracking data models
     - **Use context7 to research**: Health data modeling best practices, BMI calculation standards, and medical data validation
     - **Use sequential-thinking to plan**: Weight tracking data structure, BMI categorization logic, and validation rules
     - Write WeightEntry, WeightStats, and BMICategory data classes
