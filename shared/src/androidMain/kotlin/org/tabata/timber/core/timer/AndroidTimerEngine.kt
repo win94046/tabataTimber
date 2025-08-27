@@ -3,66 +3,76 @@ package org.tabata.timber.core.timer
 import org.tabata.timber.domain.models.TabataConfig
 import org.tabata.timber.domain.models.WorkoutSession
 import org.tabata.timber.domain.models.TimerState
-import kotlinx.coroutines.flow.MutableStateFlow
+import org.tabata.timber.domain.models.timer.PhaseType
+import org.tabata.timber.domain.models.timer.TimerConfiguration
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Android implementation of TimerEngine
- * This is a basic implementation that will be expanded in future tasks
+ * Android implementation of TimerEngine using PreciseTimerEngine
+ * Provides high-precision timing with drift correction for Android platform
  */
 class AndroidTimerEngine : TimerEngine {
     
-    private val _currentSession = MutableStateFlow<WorkoutSession?>(null)
-    private val _timerState = MutableStateFlow(TimerState.IDLE)
-    private val _remainingTime = MutableStateFlow(0)
-    private val _isActive = MutableStateFlow(false)
+    private val platformTimer = PlatformTimer()
+    private val preciseEngine = PreciseTimerEngine(platformTimer)
     
-    override val currentSession: StateFlow<WorkoutSession?> = _currentSession.asStateFlow()
-    override val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
-    override val remainingTime: StateFlow<Int> = _remainingTime.asStateFlow()
-    override val isActive: StateFlow<Boolean> = _isActive.asStateFlow()
+    // Delegate all StateFlow properties to PreciseTimerEngine
+    override val currentSession: StateFlow<WorkoutSession?> = preciseEngine.currentSession
+    override val timerState: StateFlow<TimerState> = preciseEngine.timerState
+    override val currentPhase: StateFlow<PhaseType> = preciseEngine.currentPhase
+    override val remainingTimeMs: StateFlow<Long> = preciseEngine.remainingTimeMs
+    override val remainingTime: StateFlow<Int> = preciseEngine.remainingTime
+    override val elapsedTimeMs: StateFlow<Long> = preciseEngine.elapsedTimeMs
+    override val isActive: StateFlow<Boolean> = preciseEngine.isActive
+    override val currentConfiguration: StateFlow<TimerConfiguration?> = preciseEngine.currentConfiguration
+    override val currentCycle: StateFlow<Int> = preciseEngine.currentCycle
+    override val currentSet: StateFlow<Int> = preciseEngine.currentSet
+    override val precisionMetrics: StateFlow<TimerPrecisionMetrics> = preciseEngine.precisionMetrics
     
+    // Delegate all operations to PreciseTimerEngine
     override suspend fun startSession(config: TabataConfig): Result<Unit> {
-        // TODO: Implement session start logic
-        _timerState.value = TimerState.WORK
-        _isActive.value = true
-        return Result.success(Unit)
+        return preciseEngine.startSession(config)
+    }
+    
+    override suspend fun startSession(config: TimerConfiguration): Result<Unit> {
+        return preciseEngine.startSession(config)
     }
     
     override suspend fun pauseSession(): Result<Unit> {
-        _timerState.value = TimerState.PAUSED
-        _isActive.value = false
-        return Result.success(Unit)
+        return preciseEngine.pauseSession()
     }
     
     override suspend fun resumeSession(): Result<Unit> {
-        // TODO: Resume previous state
-        _isActive.value = true
-        return Result.success(Unit)
+        return preciseEngine.resumeSession()
     }
     
     override suspend fun stopSession(): Result<Unit> {
-        _timerState.value = TimerState.IDLE
-        _isActive.value = false
-        _currentSession.value = null
-        return Result.success(Unit)
+        return preciseEngine.stopSession()
     }
     
     override suspend fun resetTimer(): Result<Unit> {
-        _timerState.value = TimerState.IDLE
-        _isActive.value = false
-        _remainingTime.value = 0
-        return Result.success(Unit)
+        return preciseEngine.resetTimer()
     }
     
     override suspend fun skipToNext(): Result<Unit> {
-        // TODO: Implement skip logic
-        return Result.success(Unit)
+        return preciseEngine.skipToNext()
     }
     
     override suspend fun skipToPrevious(): Result<Unit> {
-        // TODO: Implement previous logic
-        return Result.success(Unit)
+        return preciseEngine.skipToPrevious()
+    }
+    
+    /**
+     * Clean up Android-specific resources
+     */
+    fun cleanup() {
+        (platformTimer as? org.tabata.timber.core.timer.PlatformTimer)?.let { timer ->
+            // Access Android-specific cleanup if available
+            try {
+                timer.javaClass.getDeclaredMethod("shutdown")?.invoke(timer)
+            } catch (e: Exception) {
+                // Cleanup method not available, ignore
+            }
+        }
     }
 }
