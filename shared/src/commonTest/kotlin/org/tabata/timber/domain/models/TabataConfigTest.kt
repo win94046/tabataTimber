@@ -14,7 +14,7 @@ class TabataConfigTest {
         assertEquals(10, config.restDuration)
         assertEquals(8, config.cycles)
         assertEquals(1, config.sets)
-        assertEquals(60, config.setBreaκDuration)
+        assertEquals(60, config.setBreakDuration)
     }
     
     @Test
@@ -24,7 +24,7 @@ class TabataConfigTest {
             restDuration = 10,
             cycles = 8,
             sets = 2,
-            setBreaκDuration = 60,
+            setBreakDuration = 60,
             warmupDuration = 30,
             cooldownDuration = 30
         )

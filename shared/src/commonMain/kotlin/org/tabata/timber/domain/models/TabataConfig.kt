@@ -8,7 +8,7 @@ data class TabataConfig(
     val restDuration: Int,          // Rest period duration in seconds
     val cycles: Int,                // Number of work/rest cycles
     val sets: Int,                  // Number of sets (each set contains multiple cycles)
-    val setBreaκDuration: Int,      // Break duration between sets in seconds
+    val setBreakDuration: Int,      // Break duration between sets in seconds
     val warmupDuration: Int = 0,    // Optional warmup duration in seconds
     val cooldownDuration: Int = 0   // Optional cooldown duration in seconds
 ) {
@@ -18,7 +18,7 @@ data class TabataConfig(
      */
     fun getTotalDuration(): Int {
         val cyclesDuration = (workDuration + restDuration) * cycles * sets
-        val setBreaksDuration = setBreaκDuration * (sets - 1)
+        val setBreaksDuration = setBreakDuration * (sets - 1)
         return warmupDuration + cyclesDuration + setBreaksDuration + cooldownDuration
     }
     
@@ -32,7 +32,7 @@ data class TabataConfig(
                 restDuration = 10,
                 cycles = 8,
                 sets = 1,
-                setBreaκDuration = 60
+                setBreakDuration = 60
             )
         }
     }
