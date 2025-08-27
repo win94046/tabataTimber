@@ -1,0 +1,89 @@
+-- Database migration from version 1 to version 2
+-- Example migration: Adding workout templates and social features
+
+-- Add workout templates table for saving and sharing workout configurations
+ALTER TABLE timer_configurations ADD COLUMN template_category TEXT DEFAULT 'CUSTOM';
+ALTER TABLE timer_configurations ADD COLUMN difficulty_level INTEGER DEFAULT 1 CHECK (difficulty_level >= 1 AND difficulty_level <= 5);
+ALTER TABLE timer_configurations ADD COLUMN estimated_calories INTEGER DEFAULT 0 CHECK (estimated_calories >= 0);
+ALTER TABLE timer_configurations ADD COLUMN tags TEXT DEFAULT '';
+ALTER TABLE timer_configurations ADD COLUMN is_public INTEGER DEFAULT 0;  -- Boolean: can be shared with other users
+ALTER TABLE timer_configurations ADD COLUMN creator_id TEXT;
+ALTER TABLE timer_configurations ADD COLUMN download_count INTEGER DEFAULT 0;
+ALTER TABLE timer_configurations ADD COLUMN rating_average REAL DEFAULT 0.0 CHECK (rating_average >= 0.0 AND rating_average <= 5.0);
+ALTER TABLE timer_configurations ADD COLUMN rating_count INTEGER DEFAULT 0;
+
+-- Add workout achievements table
+CREATE TABLE workout_achievements (
+    id TEXT PRIMARY KEY NOT NULL,
+    achievement_type TEXT NOT NULL CHECK (achievement_type IN ('STREAK', 'DURATION', 'FREQUENCY', 'MILESTONE', 'SPECIAL')),
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    icon TEXT DEFAULT '',
+    target_value INTEGER NOT NULL,
+    current_progress INTEGER NOT NULL DEFAULT 0,
+    is_unlocked INTEGER NOT NULL DEFAULT 0,
+    unlocked_at INTEGER,
+    created_at INTEGER NOT NULL,
+    
+    CHECK (current_progress >= 0),
+    CHECK (target_value > 0),
+    CHECK (current_progress <= target_value OR is_unlocked = 1)
+);
+
+-- Add user stats summary table for performance optimization
+CREATE TABLE user_stats_summary (
+    id INTEGER PRIMARY KEY CHECK (id = 1),  -- Single row
+    total_workouts INTEGER NOT NULL DEFAULT 0,
+    total_workout_time INTEGER NOT NULL DEFAULT 0,  -- in seconds
+    total_calories_burned INTEGER NOT NULL DEFAULT 0,
+    current_streak INTEGER NOT NULL DEFAULT 0,
+    best_streak INTEGER NOT NULL DEFAULT 0,
+    average_workout_duration INTEGER NOT NULL DEFAULT 0,
+    favorite_workout_type TEXT,
+    last_workout_date TEXT,
+    achievements_unlocked INTEGER NOT NULL DEFAULT 0,
+    total_achievements INTEGER NOT NULL DEFAULT 0,
+    last_updated INTEGER NOT NULL
+);
+
+-- Create indexes for new tables
+CREATE INDEX idx_timer_configurations_category ON timer_configurations(template_category);
+CREATE INDEX idx_timer_configurations_difficulty ON timer_configurations(difficulty_level);
+CREATE INDEX idx_timer_configurations_public ON timer_configurations(is_public);
+CREATE INDEX idx_timer_configurations_rating ON timer_configurations(rating_average DESC);
+
+CREATE INDEX idx_workout_achievements_type ON workout_achievements(achievement_type);
+CREATE INDEX idx_workout_achievements_unlocked ON workout_achievements(is_unlocked);
+CREATE INDEX idx_workout_achievements_progress ON workout_achievements(current_progress);
+
+-- Insert default achievements
+INSERT INTO workout_achievements (
+    id, achievement_type, name, description, target_value, created_at
+) VALUES 
+    ('first_workout', 'MILESTONE', '首次訓練', '完成您的第一次 Tabata 訓練', 1, 1704067200),
+    ('week_streak', 'STREAK', '一週連續', '連續 7 天進行訓練', 7, 1704067200),
+    ('month_streak', 'STREAK', '一月戰士', '連續 30 天進行訓練', 30, 1704067200),
+    ('hundred_workouts', 'FREQUENCY', '百戰精兵', '完成 100 次訓練', 100, 1704067200),
+    ('thousand_minutes', 'DURATION', '千分鐘大師', '累積訓練 1000 分鐘', 60000, 1704067200),
+    ('calorie_crusher', 'MILESTONE', '卡路里粉碎機', '單次訓練燃燒 500 卡路里', 500, 1704067200);
+
+-- Insert default user stats summary
+INSERT OR IGNORE INTO user_stats_summary (id, last_updated) 
+VALUES (1, 1704067200);
+
+-- Update template categories for existing presets
+UPDATE timer_configurations 
+SET template_category = 'OFFICIAL',
+    difficulty_level = CASE 
+        WHEN id = 'preset_beginner' THEN 1
+        WHEN id = 'preset_standard' THEN 3
+        WHEN id = 'preset_advanced' THEN 5
+        ELSE 1
+    END,
+    estimated_calories = CASE 
+        WHEN id = 'preset_beginner' THEN 80
+        WHEN id = 'preset_standard' THEN 120
+        WHEN id = 'preset_advanced' THEN 200
+        ELSE 0
+    END
+WHERE is_preset = 1;

@@ -1,0 +1,70 @@
+-- TimerConfiguration table for storing Tabata timer configurations
+CREATE TABLE timer_configurations (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    work_duration INTEGER NOT NULL CHECK (work_duration >= 1 AND work_duration <= 3600),
+    rest_duration INTEGER NOT NULL CHECK (rest_duration >= 1 AND rest_duration <= 3600),
+    cycles INTEGER NOT NULL CHECK (cycles >= 1 AND cycles <= 50),
+    sets INTEGER NOT NULL CHECK (sets >= 1 AND sets <= 10),
+    set_break_duration INTEGER NOT NULL CHECK (set_break_duration >= 1 AND set_break_duration <= 1800),
+    warmup_duration INTEGER NOT NULL DEFAULT 0 CHECK (warmup_duration >= 0 AND warmup_duration <= 1800),
+    cooldown_duration INTEGER NOT NULL DEFAULT 0 CHECK (cooldown_duration >= 0 AND cooldown_duration <= 1800),
+    enable_sound INTEGER NOT NULL DEFAULT 1,  -- Boolean as INTEGER (0/1)
+    enable_vibration INTEGER NOT NULL DEFAULT 1,  -- Boolean as INTEGER (0/1)
+    work_phase_sound TEXT NOT NULL DEFAULT 'work_beep',
+    rest_phase_sound TEXT NOT NULL DEFAULT 'rest_beep',
+    countdown_seconds INTEGER NOT NULL DEFAULT 3 CHECK (countdown_seconds >= 0 AND countdown_seconds <= 10),
+    is_preset INTEGER NOT NULL DEFAULT 0,  -- Boolean: is this a preset configuration
+    created_at INTEGER NOT NULL,  -- Timestamp as seconds since epoch
+    updated_at INTEGER NOT NULL   -- Timestamp as seconds since epoch
+);
+
+-- Create index for better query performance
+CREATE INDEX idx_timer_configurations_preset ON timer_configurations(is_preset);
+CREATE INDEX idx_timer_configurations_created ON timer_configurations(created_at DESC);
+
+-- Insert default preset configurations
+INSERT INTO timer_configurations (
+    id, name, work_duration, rest_duration, cycles, sets, set_break_duration,
+    warmup_duration, cooldown_duration, enable_sound, enable_vibration,
+    work_phase_sound, rest_phase_sound, countdown_seconds, is_preset, 
+    created_at, updated_at
+) VALUES 
+    ('preset_standard', '標準 Tabata', 20, 10, 8, 1, 60, 0, 0, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200),
+    ('preset_beginner', '新手友善', 15, 15, 4, 1, 60, 30, 30, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200),
+    ('preset_advanced', '高強度進階', 30, 10, 8, 3, 120, 60, 60, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200);
+
+-- Queries for timer configurations
+selectAll:
+SELECT * FROM timer_configurations ORDER BY created_at DESC;
+
+selectById:
+SELECT * FROM timer_configurations WHERE id = ?;
+
+selectPresets:
+SELECT * FROM timer_configurations WHERE is_preset = 1 ORDER BY name ASC;
+
+selectUserConfigurations:
+SELECT * FROM timer_configurations WHERE is_preset = 0 ORDER BY created_at DESC;
+
+insertConfiguration:
+INSERT INTO timer_configurations (
+    id, name, work_duration, rest_duration, cycles, sets, set_break_duration,
+    warmup_duration, cooldown_duration, enable_sound, enable_vibration,
+    work_phase_sound, rest_phase_sound, countdown_seconds, is_preset,
+    created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateConfiguration:
+UPDATE timer_configurations 
+SET name = ?, work_duration = ?, rest_duration = ?, cycles = ?, sets = ?,
+    set_break_duration = ?, warmup_duration = ?, cooldown_duration = ?,
+    enable_sound = ?, enable_vibration = ?, work_phase_sound = ?,
+    rest_phase_sound = ?, countdown_seconds = ?, updated_at = ?
+WHERE id = ? AND is_preset = 0;  -- Only allow updating user configurations
+
+deleteConfiguration:
+DELETE FROM timer_configurations WHERE id = ? AND is_preset = 0;  -- Only allow deleting user configurations
+
+countUserConfigurations:
+SELECT COUNT(*) FROM timer_configurations WHERE is_preset = 0;

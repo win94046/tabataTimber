@@ -1,0 +1,106 @@
+-- Database migration from version 2 to version 3  
+-- Example migration: Adding heart rate zones and advanced analytics
+
+-- Add heart rate zones table
+CREATE TABLE heart_rate_zones (
+    id INTEGER PRIMARY KEY CHECK (id = 1),  -- Single row for user settings
+    resting_hr INTEGER CHECK (resting_hr IS NULL OR (resting_hr >= 30 AND resting_hr <= 120)),
+    max_hr INTEGER CHECK (max_hr IS NULL OR (max_hr >= 120 AND max_hr <= 220)),
+    zone1_min INTEGER,  -- Recovery zone (50-60% max HR)
+    zone1_max INTEGER,
+    zone2_min INTEGER,  -- Aerobic zone (60-70% max HR) 
+    zone2_max INTEGER,
+    zone3_min INTEGER,  -- Anaerobic zone (70-80% max HR)
+    zone3_max INTEGER,
+    zone4_min INTEGER,  -- Lactate threshold zone (80-90% max HR)
+    zone4_max INTEGER,
+    zone5_min INTEGER,  -- Neuromuscular power zone (90-100% max HR)
+    zone5_max INTEGER,
+    auto_calculate INTEGER NOT NULL DEFAULT 1,  -- Auto-calculate zones based on max HR
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    
+    CHECK (max_hr IS NULL OR resting_hr IS NULL OR max_hr > resting_hr),
+    CHECK (zone1_max IS NULL OR zone2_min IS NULL OR zone1_max <= zone2_min),
+    CHECK (zone2_max IS NULL OR zone3_min IS NULL OR zone2_max <= zone3_min),
+    CHECK (zone3_max IS NULL OR zone4_min IS NULL OR zone3_max <= zone4_min),
+    CHECK (zone4_max IS NULL OR zone5_min IS NULL OR zone4_max <= zone5_min)
+);
+
+-- Add detailed workout analytics table
+CREATE TABLE workout_analytics (
+    id TEXT PRIMARY KEY NOT NULL,
+    workout_session_id TEXT NOT NULL,
+    
+    -- Time spent in each heart rate zone (in seconds)
+    time_in_zone1 INTEGER DEFAULT 0 CHECK (time_in_zone1 >= 0),
+    time_in_zone2 INTEGER DEFAULT 0 CHECK (time_in_zone2 >= 0), 
+    time_in_zone3 INTEGER DEFAULT 0 CHECK (time_in_zone3 >= 0),
+    time_in_zone4 INTEGER DEFAULT 0 CHECK (time_in_zone4 >= 0),
+    time_in_zone5 INTEGER DEFAULT 0 CHECK (time_in_zone5 >= 0),
+    
+    -- Recovery metrics
+    hr_recovery_1min INTEGER CHECK (hr_recovery_1min IS NULL OR hr_recovery_1min >= 0),  -- Heart rate drop after 1 minute
+    hr_recovery_2min INTEGER CHECK (hr_recovery_2min IS NULL OR hr_recovery_2min >= 0),  -- Heart rate drop after 2 minutes
+    
+    -- Performance metrics
+    training_effect REAL CHECK (training_effect IS NULL OR (training_effect >= 0.0 AND training_effect <= 5.0)),
+    training_load INTEGER CHECK (training_load IS NULL OR training_load >= 0),
+    epoc INTEGER DEFAULT 0,  -- Excess Post-Exercise Oxygen Consumption in minutes
+    
+    -- Subjective metrics
+    perceived_exertion INTEGER CHECK (perceived_exertion IS NULL OR (perceived_exertion >= 1 AND perceived_exertion <= 10)),  -- RPE scale 1-10
+    energy_level_before INTEGER CHECK (energy_level_before IS NULL OR (energy_level_before >= 1 AND energy_level_before <= 5)),
+    energy_level_after INTEGER CHECK (energy_level_after IS NULL OR (energy_level_after >= 1 AND energy_level_after <= 5)),
+    mood_before TEXT CHECK (mood_before IS NULL OR mood_before IN ('TERRIBLE', 'BAD', 'OKAY', 'GOOD', 'GREAT')),
+    mood_after TEXT CHECK (mood_after IS NULL OR mood_after IN ('TERRIBLE', 'BAD', 'OKAY', 'GOOD', 'GREAT')),
+    
+    -- Environmental factors
+    temperature INTEGER,  -- Temperature in Celsius
+    humidity INTEGER CHECK (humidity IS NULL OR (humidity >= 0 AND humidity <= 100)),
+    workout_location TEXT CHECK (workout_location IS NULL OR workout_location IN ('HOME', 'GYM', 'OUTDOOR', 'OFFICE', 'OTHER')),
+    
+    created_at INTEGER NOT NULL
+);
+
+-- Add nutrition tracking (basic)
+CREATE TABLE nutrition_entries (
+    id TEXT PRIMARY KEY NOT NULL,
+    date_recorded TEXT NOT NULL,  -- ISO date format
+    meal_type TEXT NOT NULL CHECK (meal_type IN ('BREAKFAST', 'LUNCH', 'DINNER', 'SNACK', 'PRE_WORKOUT', 'POST_WORKOUT')),
+    calories INTEGER CHECK (calories IS NULL OR calories >= 0),
+    protein_g REAL CHECK (protein_g IS NULL OR protein_g >= 0),
+    carbs_g REAL CHECK (carbs_g IS NULL OR carbs_g >= 0), 
+    fat_g REAL CHECK (fat_g IS NULL OR fat_g >= 0),
+    notes TEXT DEFAULT '',
+    created_at INTEGER NOT NULL,
+    
+    CHECK (length(date_recorded) = 10)
+);
+
+-- Extend workout sessions with more detailed tracking
+ALTER TABLE workout_sessions ADD COLUMN perceived_exertion INTEGER CHECK (perceived_exertion IS NULL OR (perceived_exertion >= 1 AND perceived_exertion <= 10));
+ALTER TABLE workout_sessions ADD COLUMN mood_before TEXT CHECK (mood_before IS NULL OR mood_before IN ('TERRIBLE', 'BAD', 'OKAY', 'GOOD', 'GREAT'));
+ALTER TABLE workout_sessions ADD COLUMN mood_after TEXT CHECK (mood_after IS NULL OR mood_after IN ('TERRIBLE', 'BAD', 'OKAY', 'GOOD', 'GREAT'));
+ALTER TABLE workout_sessions ADD COLUMN workout_location TEXT CHECK (workout_location IS NULL OR workout_location IN ('HOME', 'GYM', 'OUTDOOR', 'OFFICE', 'OTHER'));
+ALTER TABLE workout_sessions ADD COLUMN temperature INTEGER;
+ALTER TABLE workout_sessions ADD COLUMN humidity INTEGER CHECK (humidity IS NULL OR (humidity >= 0 AND humidity <= 100));
+
+-- Create indexes for new tables
+CREATE INDEX idx_workout_analytics_session ON workout_analytics(workout_session_id);
+CREATE INDEX idx_workout_analytics_created ON workout_analytics(created_at DESC);
+
+CREATE INDEX idx_nutrition_entries_date ON nutrition_entries(date_recorded DESC);
+CREATE INDEX idx_nutrition_entries_meal_type ON nutrition_entries(meal_type);
+
+-- Insert default heart rate zones
+INSERT OR IGNORE INTO heart_rate_zones (id, created_at, updated_at) 
+VALUES (1, 1704067200, 1704067200);
+
+-- Add new feature usage tracking
+INSERT OR IGNORE INTO feature_usage (feature_name, created_at, updated_at) VALUES
+    ('HEART_RATE_ZONES', 1704067200, 1704067200),
+    ('ADVANCED_ANALYTICS', 1704067200, 1704067200),
+    ('NUTRITION_TRACKING', 1704067200, 1704067200),
+    ('PERFORMANCE_TRENDS', 1704067200, 1704067200),
+    ('RECOVERY_TRACKING', 1704067200, 1704067200);

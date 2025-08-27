@@ -1,0 +1,193 @@
+-- Initial database schema - Version 1
+-- This is the baseline schema for TabataTimber database
+
+-- TimerConfiguration table for storing Tabata timer configurations
+CREATE TABLE timer_configurations (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    work_duration INTEGER NOT NULL CHECK (work_duration >= 1 AND work_duration <= 3600),
+    rest_duration INTEGER NOT NULL CHECK (rest_duration >= 1 AND rest_duration <= 3600),
+    cycles INTEGER NOT NULL CHECK (cycles >= 1 AND cycles <= 50),
+    sets INTEGER NOT NULL CHECK (sets >= 1 AND sets <= 10),
+    set_break_duration INTEGER NOT NULL CHECK (set_break_duration >= 1 AND set_break_duration <= 1800),
+    warmup_duration INTEGER NOT NULL DEFAULT 0 CHECK (warmup_duration >= 0 AND warmup_duration <= 1800),
+    cooldown_duration INTEGER NOT NULL DEFAULT 0 CHECK (cooldown_duration >= 0 AND cooldown_duration <= 1800),
+    enable_sound INTEGER NOT NULL DEFAULT 1,
+    enable_vibration INTEGER NOT NULL DEFAULT 1,
+    work_phase_sound TEXT NOT NULL DEFAULT 'work_beep',
+    rest_phase_sound TEXT NOT NULL DEFAULT 'rest_beep',
+    countdown_seconds INTEGER NOT NULL DEFAULT 3 CHECK (countdown_seconds >= 0 AND countdown_seconds <= 10),
+    is_preset INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- WorkoutSession table for storing completed workout sessions
+CREATE TABLE workout_sessions (
+    id TEXT PRIMARY KEY NOT NULL,
+    configuration_id TEXT NOT NULL,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER,
+    total_duration INTEGER,
+    completed_cycles INTEGER NOT NULL DEFAULT 0,
+    completed_sets INTEGER NOT NULL DEFAULT 0,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    completion_percentage REAL NOT NULL DEFAULT 0.0 CHECK (completion_percentage >= 0.0 AND completion_percentage <= 100.0),
+    calories_burned INTEGER DEFAULT 0,
+    heart_rate_avg INTEGER DEFAULT 0,
+    heart_rate_max INTEGER DEFAULT 0,
+    rating INTEGER DEFAULT 0 CHECK (rating >= 0 AND rating <= 5),
+    notes TEXT DEFAULT '',
+    created_at INTEGER NOT NULL,
+    
+    CHECK (start_time > 0),
+    CHECK (end_time IS NULL OR end_time >= start_time),
+    CHECK (total_duration IS NULL OR total_duration >= 0),
+    CHECK (completed_cycles >= 0),
+    CHECK (completed_sets >= 0),
+    CHECK (calories_burned >= 0),
+    CHECK (heart_rate_avg >= 0 AND heart_rate_avg <= 300),
+    CHECK (heart_rate_max >= 0 AND heart_rate_max <= 300),
+    CHECK (heart_rate_max >= heart_rate_avg OR heart_rate_max = 0 OR heart_rate_avg = 0)
+);
+
+-- WeightEntry table for storing weight measurements
+CREATE TABLE weight_entries (
+    id TEXT PRIMARY KEY NOT NULL,
+    weight REAL NOT NULL CHECK (weight > 0 AND weight <= 1000),
+    unit TEXT NOT NULL CHECK (unit IN ('KG', 'LB', 'ST')),
+    weight_kg REAL NOT NULL CHECK (weight_kg >= 1.0 AND weight_kg <= 1000.0),
+    date_recorded TEXT NOT NULL,
+    time_recorded INTEGER NOT NULL,
+    notes TEXT DEFAULT '',
+    body_fat_percentage REAL CHECK (body_fat_percentage IS NULL OR (body_fat_percentage >= 0.0 AND body_fat_percentage <= 100.0)),
+    muscle_mass REAL CHECK (muscle_mass IS NULL OR (muscle_mass >= 0.0 AND muscle_mass <= weight_kg)),
+    water_percentage REAL CHECK (water_percentage IS NULL OR (water_percentage >= 0.0 AND water_percentage <= 100.0)),
+    visceral_fat REAL CHECK (visceral_fat IS NULL OR (visceral_fat >= 0.0 AND visceral_fat <= 60.0)),
+    bone_mass REAL CHECK (bone_mass IS NULL OR (bone_mass >= 0.0 AND bone_mass <= weight_kg * 0.3)),
+    source TEXT NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('MANUAL', 'SMART_SCALE', 'FITNESS_APP', 'HEALTH_APP', 'IMPORT')),
+    created_at INTEGER NOT NULL,
+    
+    CHECK (time_recorded > 0),
+    CHECK (length(date_recorded) = 10),
+    CHECK (muscle_mass IS NULL OR body_fat_percentage IS NULL OR (muscle_mass + (weight_kg * body_fat_percentage / 100.0) <= weight_kg))
+);
+
+-- User profile table
+CREATE TABLE user_profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    height_cm REAL CHECK (height_cm IS NULL OR (height_cm >= 50.0 AND height_cm <= 300.0)),
+    birth_date TEXT,
+    gender TEXT CHECK (gender IS NULL OR gender IN ('MALE', 'FEMALE', 'OTHER')),
+    activity_level TEXT DEFAULT 'MODERATE' CHECK (activity_level IN ('SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE')),
+    target_weight_kg REAL CHECK (target_weight_kg IS NULL OR (target_weight_kg >= 1.0 AND target_weight_kg <= 1000.0)),
+    preferred_unit TEXT NOT NULL DEFAULT 'KG' CHECK (preferred_unit IN ('KG', 'LB', 'ST')),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- Subscription data table
+CREATE TABLE subscription_data (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    subscription_type TEXT NOT NULL CHECK (subscription_type IN ('FREE', 'PREMIUM', 'TRIAL', 'EXPIRED', 'CANCELLED', 'PAYMENT_FAILED')),
+    current_status TEXT NOT NULL DEFAULT 'FREE',
+    trial_used INTEGER NOT NULL DEFAULT 0,
+    trial_end_date INTEGER,
+    subscription_id TEXT,
+    plan_id TEXT,
+    start_date INTEGER,
+    expiry_date INTEGER,
+    auto_renew INTEGER DEFAULT 1,
+    payment_provider TEXT CHECK (payment_provider IS NULL OR payment_provider IN ('GOOGLE_PLAY', 'APP_STORE', 'STRIPE', 'UNKNOWN')),
+    trial_id TEXT,
+    trial_start_date INTEGER,
+    trial_expiry_date INTEGER,
+    original_plan_id TEXT,
+    last_subscription_id TEXT,
+    last_plan_id TEXT,
+    last_expiry_date INTEGER,
+    grace_period_end_date INTEGER,
+    cancellation_date INTEGER,
+    cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR cancellation_reason IN ('USER_CANCELLED', 'PAYMENT_FAILED', 'REFUND_REQUESTED', 'POLICY_VIOLATION', 'OTHER')),
+    last_successful_payment INTEGER,
+    next_retry_date INTEGER,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    
+    CHECK (subscription_type = 'FREE' OR subscription_id IS NOT NULL OR trial_id IS NOT NULL),
+    CHECK (expiry_date IS NULL OR expiry_date > start_date),
+    CHECK (trial_expiry_date IS NULL OR trial_expiry_date > trial_start_date),
+    CHECK (grace_period_end_date IS NULL OR grace_period_end_date >= last_expiry_date),
+    CHECK (retry_count >= 0 AND retry_count <= max_retries)
+);
+
+-- Feature usage tracking table
+CREATE TABLE feature_usage (
+    feature_name TEXT PRIMARY KEY NOT NULL,
+    usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0),
+    daily_usage_count INTEGER NOT NULL DEFAULT 0 CHECK (daily_usage_count >= 0),
+    last_used_date TEXT,
+    last_reset_date TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- Subscription history table
+CREATE TABLE subscription_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_type TEXT NOT NULL,
+    subscription_id TEXT,
+    plan_id TEXT,
+    action TEXT NOT NULL CHECK (action IN ('CREATED', 'RENEWED', 'UPGRADED', 'DOWNGRADED', 'CANCELLED', 'EXPIRED', 'TRIAL_STARTED', 'TRIAL_ENDED', 'PAYMENT_FAILED', 'PAYMENT_RECOVERED')),
+    details TEXT,
+    timestamp INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+-- Create indexes
+CREATE INDEX idx_timer_configurations_preset ON timer_configurations(is_preset);
+CREATE INDEX idx_timer_configurations_created ON timer_configurations(created_at DESC);
+
+CREATE INDEX idx_workout_sessions_start_time ON workout_sessions(start_time DESC);
+CREATE INDEX idx_workout_sessions_config_id ON workout_sessions(configuration_id);
+CREATE INDEX idx_workout_sessions_completed ON workout_sessions(is_completed, start_time DESC);
+CREATE INDEX idx_workout_sessions_completion_date ON workout_sessions(DATE(start_time, 'unixepoch'));
+
+CREATE INDEX idx_weight_entries_date ON weight_entries(date_recorded DESC);
+CREATE INDEX idx_weight_entries_time ON weight_entries(time_recorded DESC);
+CREATE INDEX idx_weight_entries_created ON weight_entries(created_at DESC);
+CREATE INDEX idx_weight_entries_source ON weight_entries(source);
+
+CREATE INDEX idx_subscription_history_timestamp ON subscription_history(timestamp DESC);
+CREATE INDEX idx_subscription_history_type ON subscription_history(subscription_type);
+CREATE INDEX idx_feature_usage_date ON feature_usage(last_used_date);
+
+-- Insert default data
+INSERT INTO timer_configurations (
+    id, name, work_duration, rest_duration, cycles, sets, set_break_duration,
+    warmup_duration, cooldown_duration, enable_sound, enable_vibration,
+    work_phase_sound, rest_phase_sound, countdown_seconds, is_preset, 
+    created_at, updated_at
+) VALUES 
+    ('preset_standard', '標準 Tabata', 20, 10, 8, 1, 60, 0, 0, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200),
+    ('preset_beginner', '新手友善', 15, 15, 4, 1, 60, 30, 30, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200),
+    ('preset_advanced', '高強度進階', 30, 10, 8, 3, 120, 60, 60, 1, 1, 'work_beep', 'rest_beep', 3, 1, 1704067200, 1704067200);
+
+INSERT OR IGNORE INTO user_profile (id, created_at, updated_at) 
+VALUES (1, 1704067200, 1704067200);
+
+INSERT OR IGNORE INTO subscription_data (
+    id, subscription_type, current_status, created_at, updated_at
+) VALUES (1, 'FREE', 'FREE', 1704067200, 1704067200);
+
+INSERT OR IGNORE INTO feature_usage (feature_name, created_at, updated_at) VALUES
+    ('UNLIMITED_PRESETS', 1704067200, 1704067200),
+    ('ADVANCED_STATISTICS', 1704067200, 1704067200),
+    ('CLOUD_SYNC', 1704067200, 1704067200),
+    ('EXPORT_DATA', 1704067200, 1704067200),
+    ('CUSTOM_SOUNDS', 1704067200, 1704067200),
+    ('HEART_RATE_TRACKING', 1704067200, 1704067200),
+    ('WEIGHT_TRACKING', 1704067200, 1704067200),
+    ('WORKOUT_REMINDERS', 1704067200, 1704067200);

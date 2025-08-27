@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -31,10 +32,37 @@ kotlin {
             implementation(libs.koin.core)
             // DateTime library
             implementation(libs.kotlinx.datetime)
+            // SQLDelight runtime
+            implementation(libs.sqldelight.runtime)
         }
+        
+        androidMain.dependencies {
+            // SQLDelight Android driver
+            implementation(libs.sqldelight.android.driver)
+        }
+        
+        nativeMain.dependencies {
+            // SQLDelight Native driver (iOS)
+            implementation(libs.sqldelight.native.driver)
+        }
+        
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.koin.test)
+            // SQLDelight SQLite driver for testing
+            implementation(libs.sqldelight.sqlite.driver)
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("TabataTimberDatabase") {
+            packageName.set("org.tabata.timber.database")
+            srcDirs.setFrom("src/commonMain/sqldelight")
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            deriveSchemaFromMigrations.set(true)
+            verifyMigrations.set(true)
         }
     }
 }

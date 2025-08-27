@@ -1,0 +1,275 @@
+-- SubscriptionData table for storing subscription status and history
+CREATE TABLE subscription_data (
+    id INTEGER PRIMARY KEY CHECK (id = 1),  -- Ensure single row for current subscription
+    subscription_type TEXT NOT NULL CHECK (subscription_type IN ('FREE', 'PREMIUM', 'TRIAL', 'EXPIRED', 'CANCELLED', 'PAYMENT_FAILED')),
+    
+    -- Common fields
+    current_status TEXT NOT NULL DEFAULT 'FREE',
+    
+    -- Free tier data
+    trial_used INTEGER NOT NULL DEFAULT 0,  -- Boolean: has user used trial
+    trial_end_date INTEGER,  -- Timestamp when trial ended
+    
+    -- Premium subscription data
+    subscription_id TEXT,  -- External subscription ID
+    plan_id TEXT,  -- Plan identifier
+    start_date INTEGER,  -- Subscription start timestamp
+    expiry_date INTEGER,  -- Subscription expiry timestamp
+    auto_renew INTEGER DEFAULT 1,  -- Boolean: auto renewal enabled
+    payment_provider TEXT CHECK (payment_provider IS NULL OR payment_provider IN ('GOOGLE_PLAY', 'APP_STORE', 'STRIPE', 'UNKNOWN')),
+    
+    -- Trial subscription data
+    trial_id TEXT,  -- Trial identifier
+    trial_start_date INTEGER,  -- Trial start timestamp
+    trial_expiry_date INTEGER,  -- Trial expiry timestamp
+    original_plan_id TEXT,  -- Original plan that trial is for
+    
+    -- Expired subscription data
+    last_subscription_id TEXT,  -- Last active subscription ID
+    last_plan_id TEXT,  -- Last active plan ID
+    last_expiry_date INTEGER,  -- When subscription last expired
+    grace_period_end_date INTEGER,  -- Grace period end timestamp
+    
+    -- Cancelled subscription data
+    cancellation_date INTEGER,  -- When subscription was cancelled
+    cancellation_reason TEXT CHECK (cancellation_reason IS NULL OR cancellation_reason IN ('USER_CANCELLED', 'PAYMENT_FAILED', 'REFUND_REQUESTED', 'POLICY_VIOLATION', 'OTHER')),
+    
+    -- Payment failed data
+    last_successful_payment INTEGER,  -- Last successful payment timestamp
+    next_retry_date INTEGER,  -- Next payment retry timestamp
+    retry_count INTEGER DEFAULT 0,  -- Number of payment retries
+    max_retries INTEGER DEFAULT 3,  -- Maximum retry attempts
+    
+    -- Tracking fields
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    
+    -- Data integrity constraints
+    CHECK (subscription_type = 'FREE' OR subscription_id IS NOT NULL OR trial_id IS NOT NULL),
+    CHECK (expiry_date IS NULL OR expiry_date > start_date),
+    CHECK (trial_expiry_date IS NULL OR trial_expiry_date > trial_start_date),
+    CHECK (grace_period_end_date IS NULL OR grace_period_end_date >= last_expiry_date),
+    CHECK (retry_count >= 0 AND retry_count <= max_retries)
+);
+
+-- Feature usage tracking table
+CREATE TABLE feature_usage (
+    feature_name TEXT PRIMARY KEY NOT NULL,
+    usage_count INTEGER NOT NULL DEFAULT 0 CHECK (usage_count >= 0),
+    daily_usage_count INTEGER NOT NULL DEFAULT 0 CHECK (daily_usage_count >= 0),
+    last_used_date TEXT,  -- ISO date format (YYYY-MM-DD)
+    last_reset_date TEXT,  -- ISO date format when daily counter was reset
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- Subscription history table for audit trail
+CREATE TABLE subscription_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_type TEXT NOT NULL,
+    subscription_id TEXT,
+    plan_id TEXT,
+    action TEXT NOT NULL CHECK (action IN ('CREATED', 'RENEWED', 'UPGRADED', 'DOWNGRADED', 'CANCELLED', 'EXPIRED', 'TRIAL_STARTED', 'TRIAL_ENDED', 'PAYMENT_FAILED', 'PAYMENT_RECOVERED')),
+    details TEXT,  -- JSON or additional details about the action
+    timestamp INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+-- Insert default subscription data (free tier)
+INSERT OR IGNORE INTO subscription_data (
+    id, subscription_type, current_status, created_at, updated_at
+) VALUES (1, 'FREE', 'FREE', 1704067200, 1704067200);
+
+-- Initialize common premium features usage tracking
+INSERT OR IGNORE INTO feature_usage (feature_name, created_at, updated_at) VALUES
+    ('UNLIMITED_PRESETS', 1704067200, 1704067200),
+    ('ADVANCED_STATISTICS', 1704067200, 1704067200),
+    ('CLOUD_SYNC', 1704067200, 1704067200),
+    ('EXPORT_DATA', 1704067200, 1704067200),
+    ('CUSTOM_SOUNDS', 1704067200, 1704067200),
+    ('HEART_RATE_TRACKING', 1704067200, 1704067200),
+    ('WEIGHT_TRACKING', 1704067200, 1704067200),
+    ('WORKOUT_REMINDERS', 1704067200, 1704067200);
+
+-- Create indexes for better performance
+CREATE INDEX idx_subscription_history_timestamp ON subscription_history(timestamp DESC);
+CREATE INDEX idx_subscription_history_type ON subscription_history(subscription_type);
+CREATE INDEX idx_feature_usage_date ON feature_usage(last_used_date);
+
+-- Queries for subscription data
+selectCurrentSubscription:
+SELECT * FROM subscription_data WHERE id = 1;
+
+selectSubscriptionHistory:
+SELECT * FROM subscription_history ORDER BY timestamp DESC;
+
+selectSubscriptionHistoryByType:
+SELECT * FROM subscription_history 
+WHERE subscription_type = ? 
+ORDER BY timestamp DESC;
+
+selectRecentSubscriptionHistory:
+SELECT * FROM subscription_history 
+ORDER BY timestamp DESC 
+LIMIT ?;
+
+-- Feature usage queries
+selectAllFeatureUsage:
+SELECT * FROM feature_usage ORDER BY feature_name ASC;
+
+selectFeatureUsage:
+SELECT * FROM feature_usage WHERE feature_name = ?;
+
+selectFeaturesUsedToday:
+SELECT * FROM feature_usage 
+WHERE last_used_date = DATE('now') 
+ORDER BY feature_name ASC;
+
+selectMostUsedFeatures:
+SELECT * FROM feature_usage 
+ORDER BY usage_count DESC 
+LIMIT ?;
+
+-- Subscription management operations
+updateSubscriptionToFree:
+UPDATE subscription_data 
+SET subscription_type = 'FREE',
+    current_status = 'FREE',
+    subscription_id = NULL,
+    plan_id = NULL,
+    start_date = NULL,
+    expiry_date = NULL,
+    updated_at = ?
+WHERE id = 1;
+
+updateSubscriptionToPremium:
+UPDATE subscription_data 
+SET subscription_type = 'PREMIUM',
+    current_status = 'PREMIUM',
+    subscription_id = ?,
+    plan_id = ?,
+    start_date = ?,
+    expiry_date = ?,
+    auto_renew = ?,
+    payment_provider = ?,
+    updated_at = ?
+WHERE id = 1;
+
+updateSubscriptionToTrial:
+UPDATE subscription_data 
+SET subscription_type = 'TRIAL',
+    current_status = 'TRIAL',
+    trial_used = 1,
+    trial_id = ?,
+    trial_start_date = ?,
+    trial_expiry_date = ?,
+    original_plan_id = ?,
+    updated_at = ?
+WHERE id = 1;
+
+updateSubscriptionToExpired:
+UPDATE subscription_data 
+SET subscription_type = 'EXPIRED',
+    current_status = 'EXPIRED',
+    last_subscription_id = subscription_id,
+    last_plan_id = plan_id,
+    last_expiry_date = expiry_date,
+    grace_period_end_date = ?,
+    updated_at = ?
+WHERE id = 1;
+
+updateSubscriptionToCancelled:
+UPDATE subscription_data 
+SET subscription_type = 'CANCELLED',
+    current_status = 'CANCELLED',
+    cancellation_date = ?,
+    cancellation_reason = ?,
+    auto_renew = 0,
+    updated_at = ?
+WHERE id = 1;
+
+updateSubscriptionToPaymentFailed:
+UPDATE subscription_data 
+SET subscription_type = 'PAYMENT_FAILED',
+    current_status = 'PAYMENT_FAILED',
+    last_successful_payment = ?,
+    next_retry_date = ?,
+    retry_count = ?,
+    updated_at = ?
+WHERE id = 1;
+
+-- Feature usage operations
+incrementFeatureUsage:
+UPDATE feature_usage 
+SET usage_count = usage_count + 1,
+    daily_usage_count = daily_usage_count + 1,
+    last_used_date = DATE('now'),
+    updated_at = ?
+WHERE feature_name = ?;
+
+resetDailyFeatureUsage:
+UPDATE feature_usage 
+SET daily_usage_count = 0,
+    last_reset_date = DATE('now'),
+    updated_at = ?
+WHERE feature_name = ?;
+
+resetAllDailyFeatureUsage:
+UPDATE feature_usage 
+SET daily_usage_count = 0,
+    last_reset_date = DATE('now'),
+    updated_at = ?;
+
+-- Subscription history operations
+insertSubscriptionHistory:
+INSERT INTO subscription_history (
+    subscription_type, subscription_id, plan_id, action, details, timestamp, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Utility queries
+checkPremiumAccess:
+SELECT 
+    subscription_type,
+    current_status,
+    CASE 
+        WHEN subscription_type = 'FREE' THEN 0
+        WHEN subscription_type = 'PREMIUM' AND expiry_date > ? THEN 1
+        WHEN subscription_type = 'TRIAL' AND trial_expiry_date > ? THEN 1
+        WHEN subscription_type = 'EXPIRED' AND grace_period_end_date > ? THEN 1
+        WHEN subscription_type = 'CANCELLED' AND expiry_date > ? THEN 1
+        WHEN subscription_type = 'PAYMENT_FAILED' THEN 1
+        ELSE 0
+    END as has_premium_access
+FROM subscription_data WHERE id = 1;
+
+checkTrialEligibility:
+SELECT 
+    CASE 
+        WHEN trial_used = 0 THEN 1
+        ELSE 0
+    END as trial_eligible
+FROM subscription_data WHERE id = 1;
+
+getSubscriptionSummary:
+SELECT 
+    subscription_type,
+    current_status,
+    subscription_id,
+    plan_id,
+    start_date,
+    expiry_date,
+    trial_used,
+    trial_expiry_date,
+    auto_renew,
+    payment_provider,
+    cancellation_reason
+FROM subscription_data WHERE id = 1;
+
+-- Clean up old history entries (keep last N entries)
+deleteOldSubscriptionHistory:
+DELETE FROM subscription_history 
+WHERE id NOT IN (
+    SELECT id FROM subscription_history 
+    ORDER BY timestamp DESC 
+    LIMIT ?
+);
