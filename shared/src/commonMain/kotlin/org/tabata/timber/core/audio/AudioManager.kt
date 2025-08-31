@@ -15,6 +15,26 @@ enum class SoundType {
 }
 
 /**
+ * Audio playback state
+ */
+enum class AudioPlaybackState {
+    IDLE,           // No sound playing
+    PLAYING,        // Currently playing sound
+    LOADING,        // Loading/preparing sound
+    ERROR           // Error state
+}
+
+/**
+ * Audio resource information
+ */
+data class AudioResource(
+    val soundType: SoundType,
+    val fileName: String,
+    val duration: Long = 0,
+    val isLoaded: Boolean = false
+)
+
+/**
  * Core interface for managing audio playback during Tabata sessions
  * This requires platform-specific implementations
  */
@@ -36,9 +56,31 @@ interface AudioManager {
     val isAudioAvailable: StateFlow<Boolean>
     
     /**
-     * Plays a specific sound type
+     * Current audio playback state
      */
-    suspend fun playSound(soundType: SoundType): Result<Unit>
+    val playbackState: StateFlow<AudioPlaybackState>
+    
+    /**
+     * Current audio settings
+     */
+    val audioSettings: StateFlow<AudioSettings>
+    
+    /**
+     * List of available audio resources
+     */
+    val audioResources: StateFlow<List<AudioResource>>
+    
+    /**
+     * Plays a specific sound type
+     * @param soundType The type of sound to play
+     * @param priority Higher priority sounds can interrupt lower priority ones
+     */
+    suspend fun playSound(soundType: SoundType, priority: Int = 0): Result<Unit>
+    
+    /**
+     * Plays a sound with custom volume override
+     */
+    suspend fun playSound(soundType: SoundType, volume: Float, priority: Int = 0): Result<Unit>
     
     /**
      * Stops any currently playing sound
@@ -51,9 +93,19 @@ interface AudioManager {
     suspend fun setVolume(volume: Float): Result<Unit>
     
     /**
+     * Sets mute state explicitly
+     */
+    suspend fun setMuted(muted: Boolean): Result<Unit>
+    
+    /**
      * Toggles mute state
      */
     suspend fun toggleMute(): Result<Unit>
+    
+    /**
+     * Updates audio settings
+     */
+    suspend fun updateSettings(settings: AudioSettings): Result<Unit>
     
     /**
      * Initializes the audio system
@@ -71,4 +123,24 @@ interface AudioManager {
      * Preloads all sound files for better performance
      */
     suspend fun preloadSounds(): Result<Unit>
+    
+    /**
+     * Preloads a specific sound type
+     */
+    suspend fun preloadSound(soundType: SoundType): Result<Unit>
+    
+    /**
+     * Checks if a sound is ready to play
+     */
+    fun isSoundReady(soundType: SoundType): Boolean
+    
+    /**
+     * Gets audio resource information for a sound type
+     */
+    fun getAudioResource(soundType: SoundType): AudioResource?
+    
+    /**
+     * Tests audio system by playing a test sound
+     */
+    suspend fun testAudio(): Result<Unit>
 }
