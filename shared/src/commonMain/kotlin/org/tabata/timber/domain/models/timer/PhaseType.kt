@@ -5,6 +5,11 @@ package org.tabata.timber.domain.models.timer
  */
 enum class PhaseType {
     /**
+     * Initial preparation phase before starting the workout
+     */
+    PREPARATION,
+    
+    /**
      * Initial warmup phase before the main workout
      */
     WARMUP,
@@ -33,6 +38,7 @@ enum class PhaseType {
      * Returns a human-readable name for the phase
      */
     fun getDisplayName(): String = when (this) {
+        PREPARATION -> "Preparation"
         WARMUP -> "Warmup"
         WORK -> "Work"
         REST -> "Rest"
@@ -45,13 +51,14 @@ enum class PhaseType {
      */
     fun isActivePhase(): Boolean = when (this) {
         WORK -> true
-        WARMUP, REST, SET_BREAK, COOLDOWN -> false
+        PREPARATION, WARMUP, REST, SET_BREAK, COOLDOWN -> false
     }
     
     /**
      * Returns the recommended color for UI display
      */
     fun getRecommendedColor(): String = when (this) {
+        PREPARATION -> "#9E9E9E"  // Grey
         WARMUP -> "#FFA726"      // Orange
         WORK -> "#EF5350"        // Red
         REST -> "#66BB6A"        // Green

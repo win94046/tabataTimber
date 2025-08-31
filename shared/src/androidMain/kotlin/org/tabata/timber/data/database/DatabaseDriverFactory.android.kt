@@ -1,5 +1,9 @@
 package org.tabata.timber.data.database
 
+// TODO: Re-enable when SQLDelight plugin is fixed
+// This file is temporarily commented out due to SQLDelight plugin issues
+
+/*
 import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
@@ -156,3 +160,4 @@ class AndroidDatabaseMigrationHelper {
         }
     }
 }
+*/

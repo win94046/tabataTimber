@@ -1,5 +1,9 @@
 package org.tabata.timber.data.database
 
+// TODO: Re-enable when SQLDelight plugin is fixed
+// This file is temporarily commented out due to SQLDelight plugin issues
+
+/*
 import app.cash.sqldelight.db.SqlDriver
 import org.tabata.timber.database.TabataTimberDatabase
 
@@ -260,3 +264,4 @@ enum class MigrationStrategy {
     RECREATE,  // Recreate database from scratch
     IGNORE     // Ignore the error and continue
 }
+*/

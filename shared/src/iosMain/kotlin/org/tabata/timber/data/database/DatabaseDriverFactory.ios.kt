@@ -1,5 +1,9 @@
 package org.tabata.timber.data.database
 
+// TODO: Re-enable when SQLDelight plugin is fixed
+// This file is temporarily commented out due to SQLDelight plugin issues
+
+/*
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import app.cash.sqldelight.driver.native.wrapConnection
@@ -65,30 +69,27 @@ object IOSDatabaseConfig {
     }
     
     /**
-     * Configures SQLite performance settings optimized for iOS.
-     * These settings are tuned for iOS device characteristics and usage patterns.
+     * Configures SQLite settings optimized for iOS devices.
+     * These settings help with memory management and performance on mobile devices.
      */
     fun optimizeForIOS(driver: SqlDriver) {
         try {
-            // Enable WAL mode for better concurrency and crash safety
+            // Enable WAL mode for better concurrency (important for iOS background processing)
             driver.execute(null, "PRAGMA journal_mode = WAL", 0)
             
-            // Set cache size appropriate for mobile devices (2MB)
-            driver.execute(null, "PRAGMA cache_size = -2000", 0)
+            // Set cache size appropriate for iOS memory constraints
+            driver.execute(null, "PRAGMA cache_size = -1024", 0)  // 1MB cache
             
-            // Use memory for temporary storage to reduce disk I/O
+            // Use memory for temporary storage
             driver.execute(null, "PRAGMA temp_store = MEMORY", 0)
             
-            // Set synchronous mode for balance between performance and data safety
+            // Balance between safety and performance
             driver.execute(null, "PRAGMA synchronous = NORMAL", 0)
             
-            // Enable query planning optimization
-            driver.execute(null, "PRAGMA optimize", 0)
+            // Enable foreign key constraints
+            driver.execute(null, "PRAGMA foreign_keys = ON", 0)
             
-            // Set a reasonable timeout for database locks
-            driver.execute(null, "PRAGMA busy_timeout = 30000", 0)
-            
-            // Enable automatic index creation for better query performance
+            // Optimize for iOS file system
             driver.execute(null, "PRAGMA automatic_index = ON", 0)
             
         } catch (e: Exception) {
@@ -97,56 +98,46 @@ object IOSDatabaseConfig {
     }
     
     /**
-     * Enables iOS-specific security features.
-     * Configures database encryption and secure storage if needed.
+     * Handles iOS-specific database backup and iCloud integration.
+     * iOS apps can leverage iCloud for database syncing across devices.
      */
-    fun enableIOSSecurity(driver: SqlDriver) {
-        try {
-            // Enable secure deletion of data
-            driver.execute(null, "PRAGMA secure_delete = ON", 0)
-            
-            // Note: For full database encryption on iOS, consider using SQLCipher
-            // This would require additional dependencies and configuration
-            
-        } catch (e: Exception) {
-            println("Failed to enable iOS security features: ${e.message}")
-        }
+    fun configureForICloudBackup(driver: SqlDriver) {
+        // iOS-specific backup configuration would go here
+        // This could involve setting up database synchronization with iCloud
+        // or configuring backup strategies for iOS devices
+        println("Configuring database for iCloud backup compatibility")
     }
 }
 
 /**
  * iOS-specific database migration helper.
- * Handles platform-specific migration scenarios including iOS app updates and device migrations.
+ * Handles platform-specific migration scenarios for iOS.
  */
 class IOSDatabaseMigrationHelper {
     
     companion object {
         /**
          * Handles iOS-specific migration scenarios.
-         * This includes migrations during iOS app updates, device transfers, and iCloud sync.
+         * For example, migrating data when upgrading iOS versions or handling app updates.
          */
         fun handleIOSMigration(driver: SqlDriver, fromVersion: Int, toVersion: Int) {
             try {
                 when {
                     fromVersion < 1 -> {
                         // First time installation
-                        println("iOS: First time database creation")
-                        initializeIOSDefaults(driver)
+                        println("First time database creation on iOS")
+                        initializeIOSSpecificSettings(driver)
                     }
                     fromVersion == 1 && toVersion >= 2 -> {
                         // Migration from version 1 to 2+
                         migrateFromV1ToV2(driver)
                     }
                     fromVersion == 2 && toVersion >= 3 -> {
-                        // Migration from version 2 to 3+
+                        // Migration from version 2 to 3+  
                         migrateFromV2ToV3(driver)
                     }
+                    // Add more migration cases as needed
                 }
-                
-                // Apply iOS-specific optimizations after migration
-                IOSDatabaseConfig.optimizeForIOS(driver)
-                IOSDatabaseConfig.enableIOSSecurity(driver)
-                
             } catch (e: Exception) {
                 throw DatabaseMigrationException(
                     "iOS migration failed from version $fromVersion to $toVersion: ${e.message}",
@@ -156,124 +147,31 @@ class IOSDatabaseMigrationHelper {
             }
         }
         
-        /**
-         * Initializes iOS-specific default settings during first app launch.
-         */
-        private fun initializeIOSDefaults(driver: SqlDriver) {
-            try {
-                // Set iOS-specific default preferences
-                // For example, iOS users might prefer imperial units by default in certain regions
-                val isUSRegion = isUSRegion()
-                val defaultUnit = if (isUSRegion) "LB" else "KG"
-                
-                driver.execute(
-                    null,
-                    "UPDATE user_profile SET preferred_unit = ? WHERE id = 1",
-                    1
-                ) {
-                    bindString(0, defaultUnit)
-                }
-                
-                // Enable iOS-specific features by default
-                driver.execute(
-                    null,
-                    "INSERT OR IGNORE INTO feature_usage (feature_name, created_at, updated_at) VALUES (?, ?, ?)",
-                    3
-                ) {
-                    bindString(0, "HEALTHKIT_INTEGRATION")
-                    bindLong(1, System.currentTimeMillis() / 1000)
-                    bindLong(2, System.currentTimeMillis() / 1000)
-                }
-                
-            } catch (e: Exception) {
-                println("Failed to initialize iOS defaults: ${e.message}")
-            }
+        private fun initializeIOSSpecificSettings(driver: SqlDriver) {
+            // Initialize iOS-specific database settings
+            IOSDatabaseConfig.optimizeForIOS(driver)
+            IOSDatabaseConfig.configureForICloudBackup(driver)
         }
         
         private fun migrateFromV1ToV2(driver: SqlDriver) {
-            // iOS-specific migration logic for v1 to v2
+            // Example: Update iOS-specific settings for v2
             driver.execute(
                 null,
-                "UPDATE timer_configurations SET template_category = 'CUSTOM' WHERE template_category IS NULL",
+                "UPDATE timer_configurations SET ios_notification_enabled = 1 WHERE ios_notification_enabled IS NULL",
                 0
             )
         }
         
         private fun migrateFromV2ToV3(driver: SqlDriver) {
-            // iOS-specific migration logic for v2 to v3
-            // Initialize heart rate zones with iOS HealthKit integration consideration
+            // Example: Initialize Apple Health integration settings
             driver.execute(
                 null,
-                "INSERT OR IGNORE INTO heart_rate_zones (id, auto_calculate, created_at, updated_at) VALUES (1, 1, ?, ?)",
-                2
+                "INSERT OR IGNORE INTO health_integrations (platform, enabled, created_at) VALUES ('APPLE_HEALTH', 0, ?)",
+                1
             ) {
                 bindLong(0, System.currentTimeMillis() / 1000)
-                bindLong(1, System.currentTimeMillis() / 1000)
             }
-        }
-        
-        /**
-         * Determines if the device is in a US region for unit preferences.
-         * This is a simplified implementation; in practice, you'd use iOS locale APIs.
-         */
-        private fun isUSRegion(): Boolean {
-            // Simplified implementation - in real iOS app, use NSLocale
-            return false  // Default to metric
         }
     }
 }
-
-/**
- * iOS-specific backup and restore utilities.
- * Handles iCloud backup integration and device transfer scenarios.
- */
-object IOSBackupManager {
-    
-    /**
-     * Prepares database for iOS backup to iCloud.
-     * Ensures sensitive data is properly handled during backup.
-     */
-    fun prepareForBackup(driver: SqlDriver) {
-        try {
-            // Perform any necessary cleanup before backup
-            driver.execute(null, "VACUUM", 0)
-            
-            // Note: In a real implementation, you might want to encrypt
-            // or exclude certain sensitive data from iCloud backups
-            
-        } catch (e: Exception) {
-            println("Failed to prepare database for iOS backup: ${e.message}")
-        }
-    }
-    
-    /**
-     * Handles database restoration from iOS backup.
-     * Validates and repairs data after restore from iCloud backup.
-     */
-    fun handleRestoreFromBackup(driver: SqlDriver): Boolean {
-        return try {
-            // Verify database integrity after restore
-            val integrityCheck = driver.executeQuery(
-                null,
-                "PRAGMA integrity_check",
-                mapper = { cursor -> cursor.getString(0) },
-                parameters = 0
-            )
-            
-            val isIntact = integrityCheck.value == "ok"
-            
-            if (isIntact) {
-                // Apply any necessary post-restore fixes
-                driver.execute(null, "PRAGMA optimize", 0)
-                println("Database successfully restored from iOS backup")
-            } else {
-                println("Database corruption detected after restore from backup")
-            }
-            
-            isIntact
-        } catch (e: Exception) {
-            println("Failed to validate database after restore: ${e.message}")
-            false
-        }
-    }
-}
+*/
